@@ -1,0 +1,6 @@
+**/zig-out
+**/zig-cache
+
+**/target
+
+**/*.DS_Store
