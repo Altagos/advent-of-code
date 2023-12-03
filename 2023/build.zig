@@ -17,6 +17,10 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = mode,
     });
+    const util_module = b.createModule(.{
+        .source_file = .{ .path = "src/util.zig" },
+        .dependencies = &[_]std.build.ModuleDependency{},
+    });
 
     b.installArtifact(util);
 
@@ -35,7 +39,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = mode,
         });
-        exe.linkLibrary(util);
+        exe.addModule("util", util_module);
 
         const install_cmd = b.addInstallArtifact(exe, .{});
 
@@ -44,7 +48,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = mode,
         });
-        exe.linkLibrary(util);
+        build_test.addModule("util", util_module);
 
         const run_test = b.addRunArtifact(build_test);
 
