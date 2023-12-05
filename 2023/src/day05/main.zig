@@ -111,13 +111,19 @@ const Seeds = struct {
                     if (idx % 2 == 0) {
                         start = int;
                     } else {
-                        try ranges.append(.{ .start = start, .length = int });
+                        try ranges.append(.{
+                            .start = start,
+                            .length = int,
+                        });
                     }
                 }
             } else {
                 while (iter.next()) |r| {
                     const int = try parseInt(u64, r, 10);
-                    try ranges.append(.{ .start = int, .length = 1 });
+                    try ranges.append(.{
+                        .start = int,
+                        .length = 1,
+                    });
                 }
             }
         } else {
@@ -168,7 +174,6 @@ const Almanac = struct {
 
     pub fn parse(allocator: std.mem.Allocator, input: []const u8, config: AlmanacParserConfig) !*Almanac {
         var almanac: *Almanac = try allocator.create(Almanac);
-        // almanac.seeds = (try allocator.create(@TypeOf(almanac.seeds))).init();
 
         var maps = std.AutoHashMap(SectionType, std.ArrayList(Range)).init(allocator);
         defer maps.deinit();
@@ -181,20 +186,28 @@ const Almanac = struct {
                     almanac.seeds = try Seeds.from_string(allocator, section, config);
                 },
                 else => {
-                    var line_iter = std.mem.tokenizeScalar(u8, section, '\n');
+                    var line_iter = std.mem.tokenizeScalar(
+                        u8,
+                        section,
+                        '\n',
+                    );
 
                     const title_line = line_iter.next() orelse return error.MissingSctionTitle;
-                    var title_iter = std.mem.splitAny(u8, title_line, " ");
-                    const title = title_iter.first();
-                    // std.debug.print("'{s}'\n", .{title});
-                    const section_title = std.meta.stringToEnum(SectionType, title) orelse return error.UnknownSction;
+                    var title_iter = std.mem.splitAny(
+                        u8,
+                        title_line,
+                        " ",
+                    );
+                    const section_title = std.meta.stringToEnum(
+                        SectionType,
+                        title_iter.first(),
+                    ) orelse return error.UnknownSction;
 
                     var range_list = std.ArrayList(Range).init(allocator);
                     defer range_list.deinit();
 
                     while (line_iter.next()) |line| {
                         const range = try Range.from_string(line);
-                        // std.debug.print("{s}: {} - {}: {}\n", .{ line, @TypeOf(line), range, @TypeOf(range) });
                         try range_list.append(range);
                     }
 
@@ -237,15 +250,17 @@ const Almanac = struct {
         while (seed_iter.next()) |seed| {
             var value = seed;
             var current_section = SectionType.@"seed-to-soil";
+            var next_section = TRAVERSAL_MAP[@intFromEnum(current_section)].@"1";
 
             std.log.debug("{}", .{value});
 
-            while (TRAVERSAL_MAP[@intFromEnum(current_section)].@"1") |next_section| {
+            while (next_section) |next| {
                 const map = self.maps.get(current_section).?;
                 value = Range.dest_in_list(map, value);
                 std.log.debug(" {s} {}", .{ current_section.to_string(), value });
 
-                current_section = next_section;
+                current_section = next;
+                next_section = TRAVERSAL_MAP[@intFromEnum(current_section)].@"1";
             }
 
             const map = self.maps.get(current_section).?;
@@ -282,9 +297,8 @@ pub fn part2(input: []const u8) !u64 {
 }
 
 pub fn main() !void {
-    // std.log.info("processing part 1: {s}", .{data});
-    // const result_part1 = try part1(data);
-    // std.log.info("result part 1: {}", .{result_part1});
+    const result_part1 = try part1(data);
+    std.log.info("result part 1: {}", .{result_part1});
 
     const result_part2 = try part2(data);
     std.log.info("result part 2: {}", .{result_part2});
