@@ -7,6 +7,10 @@ pub const std_options = util.std_options;
 
 const data = @embedFile("data.txt");
 
+const AlmanacParserConfig = struct {
+    enable_ranges_of_seed_numbers: bool = false,
+};
+
 const Range = struct {
     start_dest: u64,
     start_source: u64,
@@ -81,16 +85,90 @@ const TRAVERSAL_MAP: [8]TraversalMapItem = .{
     .{ SectionType.@"humidity-to-location", null },
 };
 
+const Seeds = struct {
+    pub const SeedRange = struct {
+        start: u64,
+        length: u64,
+
+        fn contains(self: *const SeedRange, n: u64) bool {
+            return self.start <= n and n < self.start + self.length;
+        }
+    };
+
+    ranges: []SeedRange,
+
+    pub fn from_string(allocator: std.mem.Allocator, section: []const u8, config: AlmanacParserConfig) !Seeds {
+        var ranges = std.ArrayList(SeedRange).init(allocator);
+        defer ranges.deinit();
+
+        var iter = std.mem.splitAny(u8, section, " ");
+        if (std.mem.eql(u8, iter.first(), "seeds:")) {
+            if (config.enable_ranges_of_seed_numbers) {
+                var start: u64 = 0;
+                var idx: u64 = 0;
+                while (iter.next()) |r| : (idx += 1) {
+                    const int = try parseInt(u64, r, 10);
+                    if (idx % 2 == 0) {
+                        start = int;
+                    } else {
+                        try ranges.append(.{ .start = start, .length = int });
+                    }
+                }
+            } else {
+                while (iter.next()) |r| {
+                    const int = try parseInt(u64, r, 10);
+                    try ranges.append(.{ .start = int, .length = 1 });
+                }
+            }
+        } else {
+            return error.MissingSeedsSection;
+        }
+
+        return .{ .ranges = try ranges.toOwnedSlice() };
+    }
+
+    fn iterator(self: *Seeds) SeedIterator {
+        return SeedIterator{
+            .ranges = self.ranges,
+            .last_value = self.ranges[0].start - 1,
+        };
+    }
+};
+
+const SeedIterator = struct {
+    ranges: []Seeds.SeedRange,
+    last_value: u64,
+    index: usize = 0,
+
+    fn next(self: *SeedIterator) ?u64 {
+        if (self.index >= self.ranges.len) {
+            return null;
+        }
+
+        const index = self.index;
+        const range = self.ranges[index];
+
+        self.last_value += 1;
+        if (!range.contains(self.last_value)) {
+            self.index += 1;
+            if (self.index >= self.ranges.len) {
+                return null;
+            }
+
+            self.last_value = self.ranges[self.index].start;
+        }
+
+        return self.last_value;
+    }
+};
+
 const Almanac = struct {
-    seeds: []u64,
+    seeds: Seeds,
     maps: std.AutoHashMap(SectionType, std.ArrayList(Range)),
 
-    pub fn parse(allocator: std.mem.Allocator, input: []const u8) !*Almanac {
+    pub fn parse(allocator: std.mem.Allocator, input: []const u8, config: AlmanacParserConfig) !*Almanac {
         var almanac: *Almanac = try allocator.create(Almanac);
         // almanac.seeds = (try allocator.create(@TypeOf(almanac.seeds))).init();
-
-        var seeds = std.ArrayList(u64).init(allocator);
-        defer seeds.deinit();
 
         var maps = std.AutoHashMap(SectionType, std.ArrayList(Range)).init(allocator);
         defer maps.deinit();
@@ -100,17 +178,7 @@ const Almanac = struct {
         while (sections.next()) |section| : (idx += 1) {
             switch (idx) {
                 0 => {
-                    var iter = std.mem.splitAny(u8, section, " ");
-                    if (std.mem.eql(u8, iter.first(), "seeds:")) {
-                        // std.debug.print("Seeds:\n", .{});
-                        while (iter.next()) |r| {
-                            const seed = try parseInt(u64, r, 10);
-                            // std.debug.print("{s}: {} - {d}: {}\n", .{ r, @TypeOf(r), seed, @TypeOf(seed) });
-                            try seeds.append(seed);
-                        }
-                    } else {
-                        return error.MissingSeedsSection;
-                    }
+                    almanac.seeds = try Seeds.from_string(allocator, section, config);
                 },
                 else => {
                     var line_iter = std.mem.tokenizeScalar(u8, section, '\n');
@@ -135,7 +203,6 @@ const Almanac = struct {
             }
         }
 
-        almanac.seeds = try seeds.toOwnedSlice();
         almanac.maps = try maps.clone();
 
         return almanac;
@@ -144,7 +211,8 @@ const Almanac = struct {
     fn print(self: *Almanac) void {
         std.debug.print("Almanac\nseeds:", .{});
 
-        for (self.seeds) |seed| {
+        var seed_iterator = self.seeds.iterator();
+        while (seed_iterator.next()) |seed| {
             std.debug.print(" {d}", .{seed});
         }
 
@@ -161,6 +229,34 @@ const Almanac = struct {
             std.debug.print("\n", .{});
         }
     }
+
+    fn find_seed_with_lowest_location(self: *Almanac) u64 {
+        var lowest_location = @as(u64, @bitCast(std.math.inf(f64)));
+
+        var seed_iter = self.seeds.iterator();
+        while (seed_iter.next()) |seed| {
+            var value = seed;
+            var current_section = SectionType.@"seed-to-soil";
+
+            std.log.debug("{}", .{value});
+
+            while (TRAVERSAL_MAP[@intFromEnum(current_section)].@"1") |next_section| {
+                const map = self.maps.get(current_section).?;
+                value = Range.dest_in_list(map, value);
+                std.log.debug(" {s} {}", .{ current_section.to_string(), value });
+
+                current_section = next_section;
+            }
+
+            const map = self.maps.get(current_section).?;
+            value = Range.dest_in_list(map, value);
+            std.log.debug(" {s} {}\n", .{ current_section.to_string(), value });
+
+            lowest_location = @min(lowest_location, value);
+        }
+
+        return lowest_location;
+    }
 };
 
 pub fn part1(input: []const u8) !u64 {
@@ -168,90 +264,78 @@ pub fn part1(input: []const u8) !u64 {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const almanac = try Almanac.parse(allocator, input);
+    var almanac = try Almanac.parse(allocator, input, .{});
     almanac.print();
 
-    var lowest_location = @as(u64, @bitCast(std.math.inf(f64)));
-
-    for (almanac.seeds) |seed| {
-        var value = seed;
-        var current_section = SectionType.@"seed-to-soil";
-
-        std.log.debug("{}", .{value});
-
-        while (TRAVERSAL_MAP[@intFromEnum(current_section)].@"1") |next_section| {
-            const map = almanac.maps.get(current_section).?;
-            value = Range.dest_in_list(map, value);
-            std.log.debug(" {s} {}", .{ current_section.to_string(), value });
-
-            current_section = next_section;
-        }
-
-        const map = almanac.maps.get(current_section).?;
-        value = Range.dest_in_list(map, value);
-        std.log.debug(" {s} {}\n", .{ current_section.to_string(), value });
-
-        lowest_location = @min(lowest_location, value);
-    }
-
-    return lowest_location;
+    return almanac.find_seed_with_lowest_location();
 }
 
-pub fn part2(input: []const u8) u64 {
-    _ = input;
-    return 0;
+pub fn part2(input: []const u8) !u64 {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    var almanac = try Almanac.parse(allocator, input, .{
+        .enable_ranges_of_seed_numbers = true,
+    });
+    return almanac.find_seed_with_lowest_location();
 }
 
 pub fn main() !void {
     // std.log.info("processing part 1: {s}", .{data});
-    const result_part1 = try part1(data);
-    std.log.info("result part 1: {}", .{result_part1});
+    // const result_part1 = try part1(data);
+    // std.log.info("result part 1: {}", .{result_part1});
 
-    const result_part2 = part2(data);
+    const result_part2 = try part2(data);
     std.log.info("result part 2: {}", .{result_part2});
 }
 
+const example_data =
+    \\seeds: 79 14 55 13
+    \\
+    \\seed-to-soil map:
+    \\50 98 2
+    \\52 50 48
+    \\
+    \\soil-to-fertilizer map:
+    \\0 15 37
+    \\37 52 2
+    \\39 0 15
+    \\
+    \\fertilizer-to-water map:
+    \\49 53 8
+    \\0 11 42
+    \\42 0 7
+    \\57 7 4
+    \\
+    \\water-to-light map:
+    \\88 18 7
+    \\18 25 70
+    \\
+    \\light-to-temperature map:
+    \\45 77 23
+    \\81 45 19
+    \\68 64 13
+    \\
+    \\temperature-to-humidity map:
+    \\0 69 1
+    \\1 0 69
+    \\
+    \\humidity-to-location map:
+    \\60 56 37
+    \\56 93 4
+;
+
 test "test example part 1" {
     const t = std.testing;
-
-    const example_data =
-        \\seeds: 79 14 55 13
-        \\
-        \\seed-to-soil map:
-        \\50 98 2
-        \\52 50 48
-        \\
-        \\soil-to-fertilizer map:
-        \\0 15 37
-        \\37 52 2
-        \\39 0 15
-        \\
-        \\fertilizer-to-water map:
-        \\49 53 8
-        \\0 11 42
-        \\42 0 7
-        \\57 7 4
-        \\
-        \\water-to-light map:
-        \\88 18 7
-        \\18 25 70
-        \\
-        \\light-to-temperature map:
-        \\45 77 23
-        \\81 45 19
-        \\68 64 13
-        \\
-        \\temperature-to-humidity map:
-        \\0 69 1
-        \\1 0 69
-        \\
-        \\humidity-to-location map:
-        \\60 56 37
-        \\56 93 4
-    ;
 
     const result = try part1(example_data);
     try t.expectEqual(@as(u64, 35), result);
 }
 
-test "test example part 2" {}
+test "test example part 2" {
+    const t = std.testing;
+
+    const result = try part2(example_data);
+    try t.expectEqual(@as(u64, 46), result);
+}

@@ -1,6 +1,7 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
-pub const log_level = .debug;
+pub const log_level = if (builtin.mode == std.builtin.Mode.Debug) .debug else .info;
 
 pub const logFn: fn (
     comptime message_level: std.log.Level,
