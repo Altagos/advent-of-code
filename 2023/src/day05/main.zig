@@ -172,6 +172,14 @@ const Almanac = struct {
     seeds: Seeds,
     maps: std.AutoHashMap(SectionType, std.ArrayList(Range)),
 
+    pub fn deinit(self: *Almanac) void {
+        var iter = self.maps.iterator();
+        while (iter.next()) |map| {
+            map.value_ptr.deinit();
+        }
+        self.maps.deinit();
+    }
+
     pub fn parse(allocator: std.mem.Allocator, input: []const u8, config: AlmanacParserConfig) !*Almanac {
         var almanac: *Almanac = try allocator.create(Almanac);
 
@@ -280,6 +288,7 @@ pub fn part1(input: []const u8) !u64 {
     const allocator = arena.allocator();
 
     var almanac = try Almanac.parse(allocator, input, .{});
+    defer almanac.deinit();
     almanac.print();
 
     return almanac.find_seed_with_lowest_location();
@@ -293,6 +302,8 @@ pub fn part2(input: []const u8) !u64 {
     var almanac = try Almanac.parse(allocator, input, .{
         .enable_ranges_of_seed_numbers = true,
     });
+    defer almanac.deinit();
+
     return almanac.find_seed_with_lowest_location();
 }
 
