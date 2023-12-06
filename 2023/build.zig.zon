@@ -1,16 +1,11 @@
 .{
     .name = "aoc-2023",
     .version = "0.0.0",
-
-    // This field is optional.
-    // This is currently advisory only; Zig does not yet do anything
-    // with this value.
-    //.minimum_zig_version = "0.11.0",
-
+    .minimum_zig_version = "0.12.0-dev.1773+8a8fd47d2",
     .dependencies = .{
-        .tracer = .{
-            .url = "https://github.com/nektro/zig-tracer/tarball/406a484b904ba2e77e995544a2aa891c7aeae4a7",
-            .hash = "122093be4f3748f0472ff12c0c982347793d2011f31aecd79dea940947f8f7af8433",
+        .spall = .{
+            .url = "https://github.com/altagos/zig-spall/archive/f709ca4e584ee7f6d4448eff25aeb19562327528.tar.gz",
+            .hash = "1220b748a51c418cffcad91c0f0c6c686f839e3481dd69d888e0db546baca525045a",
         },
     },
     .paths = .{

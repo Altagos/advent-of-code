@@ -1,13 +1,11 @@
 const std = @import("std");
 const parseInt = std.fmt.parseInt;
 
-const tracer = @import("tracer");
+const tracer = @import("spall");
 
-const build_options = @import("build_options");
 const util = @import("util");
 
 pub const std_options = util.std_options;
-pub const tracer_impl = if (build_options.trace) tracer.spall else tracer.none;
 
 const data = @embedFile("data.txt");
 
@@ -324,10 +322,10 @@ pub fn part2(input: []const u8) !u64 {
 }
 
 pub fn main() !void {
-    try tracer.init();
+    try tracer.init("./data/trace_day05.spall");
     defer tracer.deinit();
 
-    try tracer.init_thread();
+    tracer.init_thread();
     defer tracer.deinit_thread();
 
     const t_part1 = tracer.trace(@src(), "Part 1", .{});
@@ -384,7 +382,10 @@ const example_data =
 test "test example part 1" {
     const t = std.testing;
 
-    try tracer.init_thread();
+    try tracer.init("./data/trace_day05_test.spall");
+    defer tracer.deinit();
+
+    tracer.init_thread();
     defer tracer.deinit_thread();
 
     const t_part1 = tracer.trace(@src(), "Part 1", .{});

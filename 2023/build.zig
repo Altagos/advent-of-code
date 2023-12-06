@@ -24,13 +24,8 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(util);
 
-    // Add tracer libary + Configuration
-    const enable_trace = b.option(bool, "trace", "Enable spall tracer") orelse false;
-    options.addOption(bool, "trace", enable_trace);
-    options.addOption(usize, "src_file_trimlen", std.fs.path.dirname(std.fs.path.dirname(@src().file).?).?.len);
-
-    const tracer = b.dependency("tracer", .{});
-    const tracer_module = tracer.module("tracer");
+    const spall = b.dependency("spall", .{});
+    const spall_module = spall.module("spall");
 
     const install_all = b.step("install_all", "Install all days");
     const run_all = b.step("run_all", "Run all days");
@@ -48,7 +43,7 @@ pub fn build(b: *std.Build) void {
             .optimize = mode,
         });
         exe.addModule("util", util_module);
-        exe.addModule("tracer", tracer_module);
+        exe.addModule("spall", spall_module);
 
         exe.addOptions("build_options", options);
 
@@ -60,7 +55,7 @@ pub fn build(b: *std.Build) void {
             .optimize = mode,
         });
         build_test.addModule("util", util_module);
-        build_test.addModule("tracer", tracer_module);
+        build_test.addModule("spall", spall_module);
 
         build_test.addOptions("build_options", options);
 
