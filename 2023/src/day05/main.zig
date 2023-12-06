@@ -1,9 +1,13 @@
 const std = @import("std");
 const parseInt = std.fmt.parseInt;
 
+const tracer = @import("tracer");
+
+const build_options = @import("build_options");
 const util = @import("util");
 
 pub const std_options = util.std_options;
+pub const tracer_impl = if (build_options.trace) tracer.spall else tracer.none;
 
 const data = @embedFile("data.txt");
 
@@ -181,6 +185,9 @@ const Almanac = struct {
     }
 
     pub fn parse(allocator: std.mem.Allocator, input: []const u8, config: AlmanacParserConfig) !*Almanac {
+        const t = tracer.trace(@src(), "Almanac::parse", .{});
+        defer t.end();
+
         var almanac: *Almanac = try allocator.create(Almanac);
 
         var maps = std.AutoHashMap(SectionType, std.ArrayList(Range)).init(allocator);
@@ -252,10 +259,16 @@ const Almanac = struct {
     }
 
     fn find_seed_with_lowest_location(self: *Almanac) u64 {
+        const t = tracer.trace(@src(), "Find Seed With Lowest Location", .{});
+        defer t.end();
+
         var lowest_location = @as(u64, @bitCast(std.math.inf(f64)));
 
         var seed_iter = self.seeds.iterator();
         while (seed_iter.next()) |seed| {
+            const t_seed = tracer.trace(@src(), "Seed: {d}", .{seed});
+            defer t_seed.end();
+
             var value = seed;
             var current_section = SectionType.@"seed-to-soil";
             var next_section = TRAVERSAL_MAP[@intFromEnum(current_section)].@"1";
@@ -263,6 +276,9 @@ const Almanac = struct {
             std.log.debug("{}", .{value});
 
             while (next_section) |next| {
+                const t_section = tracer.trace(@src(), "Seed: {d} > Section: {s}", .{ seed, current_section.to_string() });
+                defer t_section.end();
+
                 const map = self.maps.get(current_section).?;
                 value = Range.dest_in_list(map, value);
                 std.log.debug(" {s} {}", .{ current_section.to_string(), value });
@@ -289,7 +305,7 @@ pub fn part1(input: []const u8) !u64 {
 
     var almanac = try Almanac.parse(allocator, input, .{});
     defer almanac.deinit();
-    almanac.print();
+    // almanac.print();
 
     return almanac.find_seed_with_lowest_location();
 }
@@ -308,11 +324,25 @@ pub fn part2(input: []const u8) !u64 {
 }
 
 pub fn main() !void {
+    try tracer.init();
+    defer tracer.deinit();
+
+    try tracer.init_thread();
+    defer tracer.deinit_thread();
+
+    const t_part1 = tracer.trace(@src(), "Part 1", .{});
+
     const result_part1 = try part1(data);
     std.log.info("result part 1: {}", .{result_part1});
 
+    t_part1.end();
+
+    const t_part2 = tracer.trace(@src(), "Part 2", .{});
+
     const result_part2 = try part2(data);
     std.log.info("result part 2: {}", .{result_part2});
+
+    t_part2.end();
 }
 
 const example_data =
@@ -353,6 +383,12 @@ const example_data =
 
 test "test example part 1" {
     const t = std.testing;
+
+    try tracer.init_thread();
+    defer tracer.deinit_thread();
+
+    const t_part1 = tracer.trace(@src(), "Part 1", .{});
+    defer t_part1.end();
 
     const result = try part1(example_data);
     try t.expectEqual(@as(u64, 35), result);

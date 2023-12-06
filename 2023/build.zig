@@ -10,6 +10,7 @@ pub fn build(b: *std.Build) void {
 
     const target = b.standardTargetOptions(.{});
     const mode = b.standardOptimizeOption(.{});
+    const options = b.addOptions();
 
     const util = b.addSharedLibrary(.{
         .name = "util",
@@ -21,8 +22,15 @@ pub fn build(b: *std.Build) void {
         .source_file = .{ .path = "src/util.zig" },
         .dependencies = &[_]std.build.ModuleDependency{},
     });
-
     b.installArtifact(util);
+
+    // Add tracer libary + Configuration
+    const enable_trace = b.option(bool, "trace", "Enable spall tracer") orelse false;
+    options.addOption(bool, "trace", enable_trace);
+    options.addOption(usize, "src_file_trimlen", std.fs.path.dirname(std.fs.path.dirname(@src().file).?).?.len);
+
+    const tracer = b.dependency("tracer", .{});
+    const tracer_module = tracer.module("tracer");
 
     const install_all = b.step("install_all", "Install all days");
     const run_all = b.step("run_all", "Run all days");
@@ -40,6 +48,9 @@ pub fn build(b: *std.Build) void {
             .optimize = mode,
         });
         exe.addModule("util", util_module);
+        exe.addModule("tracer", tracer_module);
+
+        exe.addOptions("build_options", options);
 
         const install_cmd = b.addInstallArtifact(exe, .{});
 
@@ -49,6 +60,9 @@ pub fn build(b: *std.Build) void {
             .optimize = mode,
         });
         build_test.addModule("util", util_module);
+        build_test.addModule("tracer", tracer_module);
+
+        build_test.addOptions("build_options", options);
 
         const run_test = b.addRunArtifact(build_test);
 
