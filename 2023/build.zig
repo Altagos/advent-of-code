@@ -24,7 +24,11 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(util);
 
-    const spall = b.dependency("spall", .{});
+    const spall = b.dependency("spall", .{
+        .target = target,
+        .optimize = mode,
+        .enable = b.option(bool, "enable_spall", "Enable spall profiling") orelse false,
+    });
     const spall_module = spall.module("spall");
 
     const install_all = b.step("install_all", "Install all days");
