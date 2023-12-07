@@ -1,5 +1,6 @@
 const std = @import("std");
 const util = @import("util");
+const spall = @import("spall");
 
 pub const std_options = util.std_options;
 
@@ -17,6 +18,9 @@ const HandType = enum(u64) {
     pub const ParseResult = struct { HandType, ?bool }; // Hand type, contains joker(s)
 
     pub fn from_string(input: []const u8, joker_rule: bool) !ParseResult {
+        const t = spall.trace(@src(), "", .{});
+        defer t.end();
+
         var num_a: u16 = 0;
         var num_b: u16 = 0;
         var num_c: u16 = 0;
@@ -29,7 +33,7 @@ const HandType = enum(u64) {
         for (input, num_ptrs) |char, num| {
             var num_occurences: u16 = 0;
 
-            for (0..5) |i| {
+            inline for (0..5) |i| {
                 if (joker_rule and char == 'J') {
                     num_jokers += 1;
                 } else {
@@ -79,6 +83,9 @@ const Hand = struct {
     jokers: ?bool,
 
     pub fn init(allocator: std.mem.Allocator, input: []const u8, joker_rule: bool) !Hand {
+        const t = spall.trace(@src(), "", .{});
+        defer t.end();
+
         var tokens = util.tokenizeScalar(u8, input, ' ');
         const hand = tokens.next().?;
         const hand_input = try util.replaceOwned(u8, allocator, hand, " ", "");
@@ -96,6 +103,8 @@ const Hand = struct {
     }
 
     pub fn compareLessThan(ctx: void, lhs: Hand, rhs: Hand) bool {
+        const t = spall.trace(@src(), "", .{});
+        defer t.end();
         _ = ctx;
 
         const ltype = @intFromEnum(lhs.hand_type);
@@ -118,6 +127,9 @@ const Hand = struct {
     }
 
     fn getCardValue(b: u8, joker_rule: bool) u8 {
+        const t = spall.trace(@src(), "", .{});
+        defer t.end();
+
         return switch (b) {
             '2'...'9' => return @intCast(b - '0'),
             'T' => return 10,
@@ -131,6 +143,9 @@ const Hand = struct {
 };
 
 pub fn part1(allocator: std.mem.Allocator, input: []const u8) !u64 {
+    const t = spall.trace(@src(), "Part 1", .{});
+    defer t.end();
+
     var hands = std.ArrayList(Hand).init(allocator);
     defer hands.deinit();
 
@@ -153,6 +168,9 @@ pub fn part1(allocator: std.mem.Allocator, input: []const u8) !u64 {
 }
 
 pub fn part2(allocator: std.mem.Allocator, input: []const u8) !u64 {
+    const t = spall.trace(@src(), "Part 2", .{});
+    defer t.end();
+
     var hands = std.ArrayList(Hand).init(allocator);
     defer hands.deinit();
 
@@ -175,6 +193,15 @@ pub fn part2(allocator: std.mem.Allocator, input: []const u8) !u64 {
 }
 
 pub fn main() !void {
+    try spall.init("./data/day07.spall");
+    defer spall.deinit();
+
+    spall.init_thread();
+    defer spall.deinit_thread();
+
+    const t = spall.trace(@src(), "Main", .{});
+    defer t.end();
+
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
