@@ -4,8 +4,8 @@
     .minimum_zig_version = "0.12.0-dev.1773+8a8fd47d2",
     .dependencies = .{
         .spall = .{
-            .url = "https://github.com/altagos/zig-spall/archive/140a5266d70fbc57e661f55472f6f323e583bac9.tar.gz",
-            .hash = "1220eddbe7cd4b706c41dac5d96fda0fe6c7604243611149fe7414bb4aaaa54de2ea",
+            .url = "https://github.com/altagos/zig-spall/tarball/main",
+            .hash = "12205108a94b376ebe64be52739368f514447d2d5d738b445dc983497ec3e6e916bb",
         },
     },
     .paths = .{
