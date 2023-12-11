@@ -16,6 +16,8 @@ pub const splitBackwardsScalar = std.mem.splitBackwardsScalar;
 pub const splitSequence = std.mem.splitSequence;
 pub const splitBackwardsSequence = std.mem.splitBackwardsSequence;
 
+pub const stringToEnum = std.meta.stringToEnum;
+
 pub const tokenizeAny = std.mem.tokenizeAny;
 pub const tokenizeScalar = std.mem.tokenizeScalar;
 pub const tokenizeSequence = std.mem.tokenizeSequence;
@@ -23,4 +25,8 @@ pub const tokenizeSequence = std.mem.tokenizeSequence;
 /// Returns an iterator over the lines of a string.
 pub fn lineIterator(buffer: []const u8) std.mem.SplitIterator(u8, .sequence) {
     return splitSequence(u8, buffer, "\n");
+}
+
+pub fn lineIteratorTokens(buffer: []const u8) std.mem.TokenIterator(u8, .scalar) {
+    return tokenizeScalar(u8, buffer, '\n');
 }
